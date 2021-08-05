@@ -6,13 +6,14 @@ using System.Net.NetworkInformation;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Text;
+using System.Collections.Generic;
 
 namespace HttpClientTimeWait
 {
 
     class Program
     {
-
+        private const string DEFAULT_URL = "http://www.google.com";
 
         static void ReadFirst()
         {
@@ -72,12 +73,12 @@ Problèmes avec la classe HttpClient d’origine disponible dans.NET
         {
             if (args == null || args.Length == 0)
             {
-                args = new string[5] { "http://srv-smi-svc-d1/waterp-service/nightly/api/product/version", "10", null, null, null };
+                args = new string[5] { DEFAULT_URL, "10", null, null, null };
                 Console.WriteLine("Usage : <url> <nbAppels> <urlProxy> <proxyLogin> <proxyPassword>");
             }
 
             Stopwatch chrono = Stopwatch.StartNew();
-            Uri adresse = new Uri(args[0] ?? "http://srv-smi-svc-d1/waterp-service/nightly/api/product/version");
+            Uri adresse = new Uri(args[0] ?? DEFAULT_URL);
             int nbAppels = args.Length > 1 ? Int32.Parse(args[1]) : 10;
 
             string choix = "0";
@@ -86,53 +87,63 @@ Problèmes avec la classe HttpClient d’origine disponible dans.NET
 
             while (choix != "q")
             {
-                if ("0".Equals(choix))
+                if (choix.StartsWith("n="))
+                {
+                    int.TryParse(choix.Replace("n=", ""), out nbAppels);
+                }
+
+                if ("0".Equals(choix) || choix.StartsWith("n="))
                 {
                     Console.Clear();
+                    chrono.Reset();
                     Console.WriteLine($"Lancer un des tests suivants en tapant le numéro idoine:");
                     Console.WriteLine($" 0 - rappeler ce menu");
-                    Console.WriteLine($" 1 - {nbAppels} appels à partir de {nbAppels} HttpClient SANS 'using'");
-                    Console.WriteLine($" 2 - {nbAppels} appels à partir de {nbAppels} HttpClient AVEC des 'using'");
-                    Console.WriteLine($" 3 - {nbAppels} appels au sein d'un seul HttpClient");
-                    Console.WriteLine($" 4 - les 3 tests à la suite");
+                    Console.WriteLine($" 1 - {nbAppels} appel(s) à partir de {nbAppels} HttpClient SANS 'using'");
+                    Console.WriteLine($" 2 - {nbAppels} appel(s) à partir de {nbAppels} HttpClient AVEC des 'using'");
+                    Console.WriteLine($" 3 - {nbAppels} appel(s) au sein d'un seul HttpClient");
+                    Console.WriteLine($" 4 - {nbAppels} appel(s) à partir de {nbAppels} HttpClient AVEC des 'using' avec fermeture de la connexion en attente.");
+                    Console.WriteLine($" n=x - Change le nombre d'appels. ex n=1 pour 1 appel");
+                    Console.WriteLine($" 10 - les 3 tests à la suite");
                     Console.WriteLine($" 99- ... Pour en savoir plus");
                     Console.WriteLine($"<Entrée> pour avoir le détail des connexions ouvertes.");
                     Console.WriteLine($"<q> pour quitter.");
                 }
 
-                if ("1".Equals(choix) || "4".Equals(choix))
+                if ("1".Equals(choix) || "10".Equals(choix))
                 {
-                    await NotTheBadestWay(adresse, nbAppels);
-                    Console.WriteLine($"{CountTCPRemoteConnexionPortUsage(adresse.Port)} connexion(s) vers le port {adresse.Port} pour {CountListenerPortUsage(adresse.Port)} listeners");
+                    await MultipleCallsNoUsing(adresse, nbAppels);
                 }
-                if ("2".Equals(choix) || "4".Equals(choix))
+                if ("2".Equals(choix) || "10".Equals(choix))
                 {
-                    await BadWay(adresse, nbAppels);
-                    Console.WriteLine($"{CountTCPRemoteConnexionPortUsage(adresse.Port)} connexion(s) vers le port {adresse.Port} pour {CountListenerPortUsage(adresse.Port)} listeners");
+                    await MultipleCallsInMultipleUsings(adresse, nbAppels);
                 }
-                if ("3".Equals(choix) || "4".Equals(choix))
+                if ("3".Equals(choix) || "10".Equals(choix))
                 {
-                    await GoodWay(adresse, nbAppels);
-                    Console.WriteLine($"{CountTCPRemoteConnexionPortUsage(adresse.Port)} connexion(s) vers le port {adresse.Port} pour {CountListenerPortUsage(adresse.Port)} listeners");
+                    await MultipleCallsInSingleUsing(adresse, nbAppels);
+                }
+                if ("4".Equals(choix) || "10".Equals(choix))
+                {
+                    await MultipleCallsInMultipleUsingsWithCancelPendings(adresse, nbAppels);
+                }
 
-                }
+
                 if ("99".Equals(choix))
                 {
                     ReadFirst();
                 }
 
+                displayStats(statLocalConnexionsStillOpen(adresse));
 
                 if (string.IsNullOrWhiteSpace(choix))
                 {
 
                     Console.Clear();
-                    Console.WriteLine($"{CountTCPRemoteConnexionPortUsage(adresse.Port)} connexion(s) vers le port" +
+                    Console.WriteLine($"{CountTCPRemoteConnexionPortUsage(adresse.Port)} connexion(s) sur le port" +
                         $" {adresse.Port} pour {CountListenerPortUsage(adresse.Port)} listeners");
-                    Console.WriteLine($"Detail des connexions encore ouvertes sur le serveur");
-                    infoRemoteConnexionsStillOpen(adresse);
-                    Console.WriteLine($"Detail des connexions encore ouvertes sur le client");
-                    infoRemoteConnexionsStillOpen(adresse);
-
+                    Console.WriteLine($"Détail des connexions encore ouvertes vers le serveur {adresse}");
+                    infoConnexionsStillOpenOnRemote(adresse);
+                    Console.WriteLine($"Détail des connexions encore ouvertes depuis le client {adresse}");
+                    infoConnexionsStillOpenFromLocal(adresse);
 
                     Console.WriteLine($"au bout de {chrono.ElapsedMilliseconds / 1000} secondes");
                 }
@@ -144,7 +155,7 @@ Problèmes avec la classe HttpClient d’origine disponible dans.NET
         }
 
 
-        public static void infoRemoteConnexionsStillOpen(Uri adresse)
+        public static void infoConnexionsStillOpenOnRemote(Uri adresse)
         {
             var targetIPs = Dns.GetHostAddresses(adresse.Host);
             IPGlobalProperties ipProperties = IPGlobalProperties.GetIPGlobalProperties();
@@ -157,7 +168,7 @@ Problèmes avec la classe HttpClient d’origine disponible dans.NET
             }
         }
 
-        public static void infoLocalConnexionsStillOpen(Uri adresse)
+        public static void infoConnexionsStillOpenFromLocal(Uri adresse)
         {
             var targetIPs = Dns.GetHostAddresses(adresse.Host);
             IPGlobalProperties ipProperties = IPGlobalProperties.GetIPGlobalProperties();
@@ -167,6 +178,45 @@ Problèmes avec la classe HttpClient d’origine disponible dans.NET
             {
                 cpt++;
                 Console.WriteLine($"({cpt})\t -- { info.State}\t -- Local: {info.LocalEndPoint.Address}:{info.LocalEndPoint.Port} ==> Remote: {info.RemoteEndPoint.Address}:{info.RemoteEndPoint.Port} ({Dns.GetHostEntry(info.RemoteEndPoint.Address).HostName})");
+            }
+        }
+
+        public static IDictionary<long, String> statLocalConnexionsStillOpen(Uri adresse)
+        {
+            var targetIPs = Dns.GetHostAddresses(adresse.Host);
+            IPGlobalProperties ipProperties = IPGlobalProperties.GetIPGlobalProperties();
+            int cpt = 0;
+            Stopwatch chrono = Stopwatch.StartNew();
+            IEnumerable<TcpConnectionInformation> candatates;
+            IDictionary<long, String> liste = new Dictionary<long, String>();
+            do
+            {
+                candatates = ipProperties.GetActiveTcpConnections().Where(i => targetIPs.Contains(i.RemoteEndPoint.Address) && i.RemoteEndPoint.Port == adresse.Port).OrderBy(i => i.State);
+
+                StringBuilder iteration = new StringBuilder();
+                foreach (TcpConnectionInformation info in candatates)
+                {
+                    cpt++;
+                    iteration.AppendLine($"({cpt})\t -- at  {chrono.ElapsedMilliseconds / 1000} s \t--{ info.State}\t -- Local: {info.LocalEndPoint.Address}:{info.LocalEndPoint.Port} ==> Remote: {info.RemoteEndPoint.Address}:{info.RemoteEndPoint.Port} ({Dns.GetHostEntry(info.RemoteEndPoint.Address).HostName})");
+                }
+                liste.Add(chrono.ElapsedMilliseconds / 1000, iteration.ToString());
+                System.Threading.Thread.Sleep(1000);
+            }
+            while (candatates.Any());
+            chrono.Stop();
+            return liste;
+        }
+
+        public static void displayStats(IDictionary<long, String> stats)
+        {
+            if (stats.Count > 0)
+            {
+                var prems = stats[0];
+                var der = stats[stats.Count - 1];
+                Console.WriteLine(prems);
+                Console.WriteLine($"...");
+                Console.WriteLine(der);
+                Console.WriteLine($"Toutes les connexions sont entièrement relachées localement au bout de {stats.Keys.Last() - stats.Keys.First()} secondes.");
             }
         }
         public static int CountListenerPortUsage(Int32 port)
@@ -208,50 +258,77 @@ Problèmes avec la classe HttpClient d’origine disponible dans.NET
             return false;
         }
 
-        public static async Task NotTheBadestWay(Uri adresse, int nbCalls = 100, string proxy = null, string login = null, string password = null)
+        public static async Task MultipleCallsNoUsing(Uri adresse, int nbCalls = 100, string proxy = null, string login = null, string password = null)
         {
             Console.WriteLine($"{nbCalls} appels à partir de {nbCalls} HttpClient SANS 'using'");
             Stopwatch chrono1 = Stopwatch.StartNew();
             for (int i = 0; i < nbCalls; i++)
             {
+                long start = chrono1.ElapsedMilliseconds;
                 var client = GetHttpClient(proxy, login, password);
+                using (var result = await client.GetAsync(adresse))
+                {
+                    Console.WriteLine($"   Connexion {i + 1} : {result.StatusCode} in {chrono1.ElapsedMilliseconds - start} ms");
+                }
 
-                var result = await client.GetAsync(adresse);
-                Console.WriteLine($"   Connexion {i + 1} : {result.StatusCode}");
 
 
             }
             Console.WriteLine($"{nbCalls} appels en {chrono1.ElapsedMilliseconds} ms");
         }
 
-        public static async Task BadWay(Uri adresse, int nbCalls = 100, string proxy = null, string login = null, string password = null)
+        public static async Task MultipleCallsInMultipleUsings(Uri adresse, int nbCalls = 100, string proxy = null, string login = null, string password = null)
         {
             Console.WriteLine($"{nbCalls} appels à partir de {nbCalls} HttpClient AVEC des 'using'");
             Stopwatch chrono2 = Stopwatch.StartNew();
             for (int i = 0; i < nbCalls; i++)
             {
-
+                long start = chrono2.ElapsedMilliseconds;
                 using (var client = GetHttpClient(proxy, login, password))
                 {
                     var result = await client.GetAsync(adresse);
-                    Console.WriteLine($"   Connexion {i + 1} : {result.StatusCode}");
+                    Console.WriteLine($"   Connexion {i + 1} : {result.StatusCode} in {chrono2.ElapsedMilliseconds - start} ms");
                 }
             }
             Console.WriteLine($"{nbCalls} Appels en {chrono2.ElapsedMilliseconds} ms");
 
         }
 
+        public static async Task MultipleCallsInMultipleUsingsWithCancelPendings(Uri adresse, int nbCalls = 100, string proxy = null, string login = null, string password = null)
+        {
+            Console.WriteLine($"{nbCalls} appels à partir de {nbCalls} HttpClient AVEC des 'using'");
+            Stopwatch chrono2 = Stopwatch.StartNew();
+            for (int i = 0; i < nbCalls; i++)
+            {
+                HttpClient client;
+                long start = chrono2.ElapsedMilliseconds;
+                using (client = GetHttpClient(proxy, login, password))
+                {
+                    using (var result = await client.GetAsync(adresse))
+                    {
+                        Console.WriteLine($"   Connexion {i + 1} : {result.StatusCode} in {chrono2.ElapsedMilliseconds - start} ms");
+                    }
+                    client.CancelPendingRequests();
+                }
 
-        public static async Task GoodWay(Uri adresse, int nbCalls = 100, string proxy = null, string login = null, string password = null)
+
+
+            }
+            Console.WriteLine($"{nbCalls} Appels en {chrono2.ElapsedMilliseconds} ms");
+
+        }
+
+        public static async Task MultipleCallsInSingleUsing(Uri adresse, int nbCalls = 100, string proxy = null, string login = null, string password = null)
         {
             Console.WriteLine($"{nbCalls} appels au sein d'un seul HttpClient");
             Stopwatch chrono3 = Stopwatch.StartNew();
+            long start = chrono3.ElapsedMilliseconds;
             using (var client = GetHttpClient(proxy, login, password))
             {
                 for (int i = 0; i < nbCalls; i++)
                 {
                     var result = await client.GetAsync(adresse);
-                    Console.WriteLine($"   Connexion {i + 1} : {result.StatusCode}");
+                    Console.WriteLine($"   Connexion {i + 1} : {result.StatusCode} in {chrono3.ElapsedMilliseconds - start} ms");
                 }
             }
             Console.WriteLine($"{nbCalls} Appels en {chrono3.ElapsedMilliseconds} ms");
