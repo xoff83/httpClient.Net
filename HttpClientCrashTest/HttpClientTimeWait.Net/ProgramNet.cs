@@ -1,19 +1,19 @@
-﻿using System;
-using System.Diagnostics;
-using System.Net;
-using System.Net.Http;
-using System.Net.NetworkInformation;
-using System.Threading.Tasks;
-using System.Linq;
-using System.Text;
-using System.Collections.Generic;
-
-namespace HttpClientTimeWait
+﻿namespace HttpClientTimeWait.Net
 {
+    using System;
+    using System.Diagnostics;
+    using System.Net;
+    using System.Net.Http;
+    using System.Net.NetworkInformation;
+    using System.Threading.Tasks;
+    using System.Linq;
+    using System.Text;
+    using System.Collections.Generic;
 
-    class Program
+
+    class ProgramNet
     {
-        private const string DEFAULT_URL = "http://www.google.com";
+        private const string DEFAULT_URL = "http://localhost:80/test";
 
         static void ReadFirst()
         {
@@ -83,7 +83,7 @@ Problèmes avec la classe HttpClient d’origine disponible dans.NET
 
             string choix = "0";
 
-            Console.WriteLine($"Appel sur {adresse.OriginalString} sur l'IP  {Dns.GetHostAddresses(adresse.Host)[0]}");
+
 
             while (choix != "q")
             {
@@ -107,23 +107,29 @@ Problèmes avec la classe HttpClient d’origine disponible dans.NET
                     Console.WriteLine($" 99- ... Pour en savoir plus");
                     Console.WriteLine($"<Entrée> pour avoir le détail des connexions ouvertes.");
                     Console.WriteLine($"<q> pour quitter.");
+                    Console.WriteLine();
+                    Console.WriteLine($"Appel sur {adresse.OriginalString} sur l'IP  {Dns.GetHostAddresses(adresse.Host)[0]}");
                 }
 
                 if ("1".Equals(choix) || "10".Equals(choix))
                 {
                     await MultipleCallsNoUsing(adresse, nbAppels);
+                    displayStats(statLocalConnexionsStillOpen(adresse));
                 }
                 if ("2".Equals(choix) || "10".Equals(choix))
                 {
                     await MultipleCallsInMultipleUsings(adresse, nbAppels);
+                    displayStats(statLocalConnexionsStillOpen(adresse));
                 }
                 if ("3".Equals(choix) || "10".Equals(choix))
                 {
                     await MultipleCallsInSingleUsing(adresse, nbAppels);
+                    displayStats(statLocalConnexionsStillOpen(adresse));
                 }
                 if ("4".Equals(choix) || "10".Equals(choix))
                 {
                     await MultipleCallsInMultipleUsingsWithCancelPendings(adresse, nbAppels);
+                    displayStats(statLocalConnexionsStillOpen(adresse));
                 }
 
 
@@ -132,7 +138,7 @@ Problèmes avec la classe HttpClient d’origine disponible dans.NET
                     ReadFirst();
                 }
 
-                displayStats(statLocalConnexionsStillOpen(adresse));
+
 
                 if (string.IsNullOrWhiteSpace(choix))
                 {
@@ -294,6 +300,25 @@ Problèmes avec la classe HttpClient d’origine disponible dans.NET
 
         }
 
+
+        public static async Task MultipleCallsInSingleUsing(Uri adresse, int nbCalls = 100, string proxy = null, string login = null, string password = null)
+        {
+            Console.WriteLine($"{nbCalls} appels au sein d'un seul HttpClient");
+            Stopwatch chrono3 = Stopwatch.StartNew();
+            long start = chrono3.ElapsedMilliseconds;
+            using (var client = GetHttpClient(proxy, login, password))
+            {
+                for (int i = 0; i < nbCalls; i++)
+                {
+                    var result = await client.GetAsync(adresse);
+                    Console.WriteLine($"   Connexion {i + 1} : {result.StatusCode} in {chrono3.ElapsedMilliseconds - start} ms");
+                }
+            }
+            Console.WriteLine($"{nbCalls} Appels en {chrono3.ElapsedMilliseconds} ms");
+
+        }
+
+
         public static async Task MultipleCallsInMultipleUsingsWithCancelPendings(Uri adresse, int nbCalls = 100, string proxy = null, string login = null, string password = null)
         {
             Console.WriteLine($"{nbCalls} appels à partir de {nbCalls} HttpClient AVEC des 'using'");
@@ -318,24 +343,6 @@ Problèmes avec la classe HttpClient d’origine disponible dans.NET
 
         }
 
-        public static async Task MultipleCallsInSingleUsing(Uri adresse, int nbCalls = 100, string proxy = null, string login = null, string password = null)
-        {
-            Console.WriteLine($"{nbCalls} appels au sein d'un seul HttpClient");
-            Stopwatch chrono3 = Stopwatch.StartNew();
-            long start = chrono3.ElapsedMilliseconds;
-            using (var client = GetHttpClient(proxy, login, password))
-            {
-                for (int i = 0; i < nbCalls; i++)
-                {
-                    var result = await client.GetAsync(adresse);
-                    Console.WriteLine($"   Connexion {i + 1} : {result.StatusCode} in {chrono3.ElapsedMilliseconds - start} ms");
-                }
-            }
-            Console.WriteLine($"{nbCalls} Appels en {chrono3.ElapsedMilliseconds} ms");
-
-        }
-
-
-
     }
 }
+

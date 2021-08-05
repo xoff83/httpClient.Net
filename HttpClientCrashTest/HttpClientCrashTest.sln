@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31424.327
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HttpClientTimeWait", "HttpClientTimeWait\HttpClientTimeWait.csproj", "{97399472-C01B-46EC-8A29-9685C0758058}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HttpClientTimeWait.Net", "HttpClientTimeWait.Net\HttpClientTimeWait.Net.csproj", "{6AF50E19-E03E-4DB0-826E-B13ADD8761D7}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HttpClientTimeWait.Core", "HttpClientTimeWait.Core\HttpClientTimeWait.Core.csproj", "{C64A788E-BA2A-4FAF-92E7-71E919F257F9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,10 +13,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{97399472-C01B-46EC-8A29-9685C0758058}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{97399472-C01B-46EC-8A29-9685C0758058}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{97399472-C01B-46EC-8A29-9685C0758058}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{97399472-C01B-46EC-8A29-9685C0758058}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6AF50E19-E03E-4DB0-826E-B13ADD8761D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6AF50E19-E03E-4DB0-826E-B13ADD8761D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6AF50E19-E03E-4DB0-826E-B13ADD8761D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6AF50E19-E03E-4DB0-826E-B13ADD8761D7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C64A788E-BA2A-4FAF-92E7-71E919F257F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C64A788E-BA2A-4FAF-92E7-71E919F257F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C64A788E-BA2A-4FAF-92E7-71E919F257F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C64A788E-BA2A-4FAF-92E7-71E919F257F9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
